@@ -1,19 +1,18 @@
 #!ipxe
 
-# Ubuntu Operating System
+# Custom Ubuntu Operating System
 # https://www.ubuntu.com
 
 :custom:
-clear custom_choice
 menu czankel's Custom Menu
 
 set os Ubuntu
 set os_arch ${arch}
 iseq ${os_arch} x86_64 && set os_arch amd64 ||
 iseq ${os_arch} arm64 && set os_arch arm64 ||
+clear custom_choice
 clear ubuntu_version
 clear install_type
-clear older_release
 clear install_url
 clear kernel_flavor
 set install_type sub
@@ -23,24 +22,17 @@ item --gap Latest Releases
 item resolute ${space} ${os} 26.04 LTS Resolute Raccoon
 item noble ${space} ${os} 24.04 LTS Noble Numbat
 item jammy ${space} ${os} 22.04 LTS Jammy Jellyfish
-item focal ${space} ${os} 20.04 LTS Focal Fossa (Subiquity)
-item focal-legacy ${space} ${os} 20.04 LTS Focal Fossa (Legacy)
-item bionic ${space} ${os} 18.04 LTS Bionic Beaver
-item xenial ${space} ${os} 16.04 LTS Xenial Xerus
-item --gap Older Releases
-item older_release ${space} Set release codename...
-choose ubuntu_version || goto ubuntu_exit
-iseq ${ubuntu_version} older_release && goto older_release ||
-iseq ${ubuntu_version} focal-legacy && set install_type deb ||
-iseq ${ubuntu_version} focal-legacy && set ubuntu_version focal ||
+choose ubuntu_version || goto custom_exit
 iseq ${install_type} sub && goto kernel_type ||
-iseq ${os_arch} arm64 && echo "arm64 not supported on legacy network installs, please use 20.04 Subiquity and up" && sleep 5 && goto ubuntu ||
+iseq ${os_arch} arm64 && echo "arm64 not supported on legacy network installs, please use 20.04 Subiquity and up" && sleep 5 && goto custom ||
 goto mirrorcfg
 
 :kernel_type
 set kernel_flavor generic
 iseq ${ubuntu_version} noble && iseq ${os_arch} amd64 && goto kernel_type_menu ||
 iseq ${ubuntu_version} noble && iseq ${os_arch} arm64 && goto kernel_type_menu ||
+iseq ${ubuntu_version} resolute && iseq ${os_arch} arm64 && goto kernel_type_menu ||
+
 goto boot_type
 
 :kernel_type_menu
@@ -48,16 +40,8 @@ menu ${os} [${ubuntu_version}] ${os_arch} - Kernel Type
 item --gap Select kernel type
 item generic ${space} Generic Kernel (default)
 item hwe ${space} HWE Kernel (Hardware Enablement)
-choose --default ${kernel_flavor} kernel_flavor || goto ubuntu
-goto boot_type
-
-:older_release
-set older_release true
-set ubuntu_mirror http://old-releases.ubuntu.com
-echo Setting mirror to ${ubuntu_mirror}
-clear ubuntu_version
-echo -n Please set enter code name of release: ${} && read ubuntu_version
-set dir ${ubuntu_base_dir}/dists/${ubuntu_version}-updates/main/installer-${os_arch}/current/images/netboot/
+item large ${space} Large Kernel
+choose --default ${kernel_flavor} kernel_flavor || goto custom
 goto boot_type
 
 :mirrorcfg
@@ -73,7 +57,7 @@ item install ${space} Install
 item rescue ${space} Rescue Mode
 item automated ${space} Specify preseed/autoinstall url...
 iseq ${install_type} deb && item priority ${space} Change install priority [ ${install_priority} ] ||
-choose --default ${type} type || goto ubuntu
+choose --default ${type} type || goto custom
 echo ${cls}
 goto deb_${type}
 
@@ -110,16 +94,6 @@ echo MD5sums:
 md5sum linux initrd.gz
 boot
 
-:focal_amd64
-set kernel_url ${live_endpoint}/ubuntu-squash/releases/download/20.04.6-5e5212b4/
-set codename focal
-set version_number 20.04.6
-goto sub_boot
-:focal_arm64
-set kernel_url ${live_endpoint}/ubuntu-squash/releases/download/20.04.5-eeac4ce0/
-set codename focal
-set version_number 20.04.5
-goto sub_boot
 :jammy_amd64
 set kernel_url ${live_endpoint}/ubuntu-squash/releases/download/22.04.5-3b4b797c/
 set codename jammy
@@ -180,7 +154,8 @@ set kernel_url ${live_endpoint}/ubuntu-squash/releases/download/26.04-d4149848/
 set codename resolute
 set version_number 26.04
 goto sub_boot
-:resolute_arm64
+
+:resolute_arm64_large
 set kernel_url https://github.com/czankel/ubuntu-largemem/releases/download/26.04.1-40f930e5/
 set ubuntu_iso_url https://cdimage.ubuntu.com/ubuntu/releases/26.04/release/ubuntu-26.04.1-live-server-arm64%2Blargemem.iso
 set codename resolute
