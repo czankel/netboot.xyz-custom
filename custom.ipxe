@@ -1,31 +1,216 @@
 #!ipxe
-###
-### czankel's netboot.xyz custom menu
-###
-### Boots Ubuntu 26.04 LTS arm64 (64k pages / largemem) live-server.
-### Kernel/initrd come from the czankel/ubuntu-largemem GitHub release;
-### casper streams the full ISO from cdimage.ubuntu.com at boot.
-###
 
-:custom
-clear custom_choice
-menu czankel's Custom Menu
-item --gap Ubuntu 26.04 LTS (arm64, 64k pages): ||
-item ubuntu-26-04-largemem ${space} Ubuntu 26.04.1 Live Server arm64 +largemem
-choose custom_choice || goto custom_exit
+# Ubuntu Operating System
+# https://www.ubuntu.com
+
+goto ${menu}
+
+:ubuntu
+set os Ubuntu
+set os_arch ${arch}
+iseq ${os_arch} x86_64 && set os_arch amd64 ||
+iseq ${os_arch} arm64 && set os_arch arm64 ||
+clear ubuntu_version
+clear install_type
+clear older_release
+clear install_url
+clear kernel_flavor
+set install_type sub
+set install_priority critical
+menu ${os} - ${os_arch}
+item --gap Latest Releases
+item resolute ${space} ${os} 26.04 LTS Resolute Raccoon
+item noble ${space} ${os} 24.04 LTS Noble Numbat
+item jammy ${space} ${os} 22.04 LTS Jammy Jellyfish
+item focal ${space} ${os} 20.04 LTS Focal Fossa (Subiquity)
+item focal-legacy ${space} ${os} 20.04 LTS Focal Fossa (Legacy)
+item bionic ${space} ${os} 18.04 LTS Bionic Beaver
+item xenial ${space} ${os} 16.04 LTS Xenial Xerus
+item --gap Older Releases
+item older_release ${space} Set release codename...
+choose ubuntu_version || goto ubuntu_exit
+iseq ${ubuntu_version} older_release && goto older_release ||
+iseq ${ubuntu_version} focal-legacy && set install_type deb ||
+iseq ${ubuntu_version} focal-legacy && set ubuntu_version focal ||
+iseq ${install_type} sub && goto kernel_type ||
+iseq ${os_arch} arm64 && echo "arm64 not supported on legacy network installs, please use 20.04 Subiquity and up" && sleep 5 && goto ubuntu ||
+goto mirrorcfg
+
+:kernel_type
+set kernel_flavor generic
+iseq ${ubuntu_version} noble && iseq ${os_arch} amd64 && goto kernel_type_menu ||
+iseq ${ubuntu_version} noble && iseq ${os_arch} arm64 && goto kernel_type_menu ||
+goto boot_type
+
+:kernel_type_menu
+menu ${os} [${ubuntu_version}] ${os_arch} - Kernel Type
+item --gap Select kernel type
+item generic ${space} Generic Kernel (default)
+item hwe ${space} HWE Kernel (Hardware Enablement)
+choose --default ${kernel_flavor} kernel_flavor || goto ubuntu
+goto boot_type
+
+:older_release
+set older_release true
+set ubuntu_mirror http://old-releases.ubuntu.com
+echo Setting mirror to ${ubuntu_mirror}
+clear ubuntu_version
+echo -n Please set enter code name of release: ${} && read ubuntu_version
+set dir ${ubuntu_base_dir}/dists/${ubuntu_version}-updates/main/installer-${os_arch}/current/images/netboot/
+goto boot_type
+
+:mirrorcfg
+set mirrorcfg mirror/suite=${ubuntu_version}
+set dir ${ubuntu_base_dir}/dists/${ubuntu_version}-updates/main/installer-${os_arch}/current/images/netboot/
+iseq ${ubuntu_version} focal && set dir ${ubuntu_base_dir}/dists/${ubuntu_version}-updates/main/installer-${os_arch}/current/legacy-images/netboot/ ||
+goto boot_type
+
+:boot_type
+menu ${os} [${ubuntu_version}] Installer
+item --gap Install types
+item install ${space} Install
+item rescue ${space} Rescue Mode
+item automated ${space} Specify preseed/autoinstall url...
+iseq ${install_type} deb && item priority ${space} Change install priority [ ${install_priority} ] ||
+choose --default ${type} type || goto ubuntu
 echo ${cls}
-goto ${custom_choice}
-goto custom_exit
+goto deb_${type}
 
-:ubuntu-26-04-largemem
-set kernel_url https://github.com/czankel/ubuntu-largemem/releases/download/26.04.1-40f930e5/
-set largemem_iso_url https://cdimage.ubuntu.com/ubuntu/releases/26.04/release/ubuntu-26.04.1-live-server-arm64%2Blargemem.iso
-kernel ${kernel_url}vmlinuz root=/dev/ram0 ramdisk_size=3500000 cloud-config-url=/dev/null ${netboot_params} ${install_params} {{ kernel_params }}
-initrd ${kernel_url}initrd
-imgargs vmlinuz initrd=initrd
+:deb_rescue
+iseq ${install_type} deb && set install_params rescue/enable=true ||
+iseq ${install_type} sub && set install_params systemd.unit=rescue.target ||
+goto deb_install
+
+:deb_priority
+iseq ${install_priority} critical && set install_priority low || set install_priority critical
+goto boot_type
+
+:deb_automated
+iseq ${install_type} deb && set install_name preseed ||
+iseq ${install_type} sub && set install_name autoinstall ||
+echo -n Specify ${install_name} URL for ${os} ${ubuntu_version}: && read install_url
+iseq ${install_type} deb && set install_params auto=true priority=${install_priority} preseed/url=${install_url} ||
+iseq ${install_type} sub && set install_params autoinstall ds=nocloud-net;s=${install_url} ||
+goto deb_install
+
+:deb_install
+iseq ${install_type} deb && goto deb_boot ||
+iseq ${kernel_flavor} hwe && goto ${ubuntu_version}_${os_arch}_hwe ||
+iseq ${install_type} sub && goto ${ubuntu_version}_${os_arch} ||
+
+:deb_boot
+echo Loading Ubuntu PXE netboot installer
+set dir ${dir}ubuntu-installer/${os_arch}
+imgfree
+kernel ${ubuntu_mirror}/${dir}/linux ${install_params} ${mirrorcfg} initrd=initrd.magic ${cmdline}
+initrd ${ubuntu_mirror}/${dir}/initrd.gz
 echo
-boot || goto custom_exit
+echo MD5sums:
+md5sum linux initrd.gz
+boot
 
-:custom_exit
-chain utils.ipxe
-exit
+:focal_amd64
+set kernel_url ${live_endpoint}/ubuntu-squash/releases/download/20.04.6-5e5212b4/
+set codename focal
+set version_number 20.04.6
+goto sub_boot
+:focal_arm64
+set kernel_url ${live_endpoint}/ubuntu-squash/releases/download/20.04.5-eeac4ce0/
+set codename focal
+set version_number 20.04.5
+goto sub_boot
+:jammy_amd64
+set kernel_url ${live_endpoint}/ubuntu-squash/releases/download/22.04.5-3b4b797c/
+set codename jammy
+set version_number 22.04.5
+goto sub_boot
+:jammy_arm64
+set kernel_url ${live_endpoint}/ubuntu-squash/releases/download/22.04.5-2850932c/
+set codename jammy
+set version_number 22.04.5
+goto sub_boot
+:noble_amd64
+set kernel_url ${live_endpoint}/ubuntu-squash/releases/download/24.04.4-494663bf/
+set codename noble
+set version_number 24.04.4
+goto sub_boot
+:noble_arm64
+set kernel_url ${live_endpoint}/ubuntu-squash/releases/download/24.04.4-079b63cc/
+set codename noble
+set version_number 24.04.4
+goto sub_boot
+:oracular_amd64
+set kernel_url ${live_endpoint}/ubuntu-squash/releases/download/24.10-835ab0cb/
+set codename oracular
+set version_number 24.10
+goto sub_boot
+:oracular_arm64
+set kernel_url ${live_endpoint}/ubuntu-squash/releases/download/24.10-f22a7742/
+set codename oracular
+set version_number 24.10
+goto sub_boot
+:plucky_amd64
+set kernel_url ${live_endpoint}/ubuntu-squash/releases/download/25.04-fa10ffe9/
+set codename plucky
+set version_number 25.04
+goto sub_boot
+:plucky_arm64
+set kernel_url ${live_endpoint}/ubuntu-squash/releases/download/25.04-63097bc7/
+set codename plucky
+set version_number 25.04
+goto sub_boot
+:questing_amd64
+set kernel_url ${live_endpoint}/ubuntu-squash/releases/download/25.10-e5b10ff7/
+set codename questing
+set version_number 25.10
+goto sub_boot
+:questing_arm64
+set kernel_url ${live_endpoint}/ubuntu-squash/releases/download/25.10-2e341d3c/
+set codename questing
+set version_number 25.10
+goto sub_boot
+:resolute_amd64
+set kernel_url ${live_endpoint}/ubuntu-squash/releases/download/26.04-c43af979/
+set codename resolute
+set version_number 26.04
+goto sub_boot
+:resolute_arm64
+set kernel_url ${live_endpoint}/ubuntu-squash/releases/download/26.04-d4149848/
+set codename resolute
+set version_number 26.04
+goto sub_boot
+:resolute_arm64-large
+set kernel_url https://github.com/czankel/ubuntu-largemem/releases/download/26.04.1-40f930e5/
+set version_number 26.04.1
+set ubuntu_iso_url https://cdimage.ubuntu.com/ubuntu/releases/26.04/release/ubuntu-26.04.1-live-server-arm64%2Blargemem.iso
+set codename resolute
+set version_number 26.04
+goto sub_boot
+
+:noble_amd64_hwe
+set kernel_url ${live_endpoint}/ubuntu-squash/releases/download/24.04.4-404ef3c5/
+set codename noble
+set version_number 24.04.4
+goto sub_boot
+:noble_arm64_hwe
+set kernel_url ${live_endpoint}/ubuntu-squash/releases/download/24.04.4-8adb9c67/
+set codename noble
+set version_number 24.04.4
+goto sub_boot
+
+:sub_boot
+imgfree
+iseq ${ubuntu_iso_url} && iseq ${os_arch} amd64 && set ubuntu_iso_url http://releases.ubuntu.com/${codename}/ubuntu-${version_number}-live-server-${os_arch}.iso ||
+iseq ${ubuntu_iso_url} && iseq ${os_arch} arm64 && set ubuntu_iso_url http://cdimage.ubuntu.com/releases/${version_number}/release/ubuntu-${version_number}-live-server-${os_arch}.iso ||
+isset ${dhcp-server} && set netboot_params ip=dhcp url=${ubuntu_iso_url} || set netboot_params
+echo Loading Ubuntu Subiquity Network Installer...
+kernel ${kernel_url}vmlinuz root=/dev/ram0 ramdisk_size=3500000 cloud-config-url=/dev/null ${netboot_params} ${install_params} initrd=initrd.magic ${cmdline}
+initrd ${kernel_url}initrd
+echo
+echo MD5sums:
+md5sum vmlinuz initrd
+boot
+
+:ubuntu_exit
+clear menu
+exit 0
