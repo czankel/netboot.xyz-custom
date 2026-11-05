@@ -180,7 +180,7 @@ set kernel_url ${live_endpoint}/ubuntu-squash/releases/download/26.04-d4149848/
 set codename resolute
 set version_number 26.04
 goto sub_boot
-:resolute_arm64_large
+:resolute_arm64
 set kernel_url https://github.com/czankel/ubuntu-largemem/releases/download/26.04.1-40f930e5/
 set ubuntu_iso_url https://cdimage.ubuntu.com/ubuntu/releases/26.04/release/ubuntu-26.04.1-live-server-arm64%2Blargemem.iso
 set codename resolute
