@@ -1,12 +1,29 @@
 #!ipxe
 ###
-### netboot.xyz-custom menu
+### czankel's netboot.xyz custom menu
+###
+### Boots Ubuntu 26.04 LTS arm64 (64k pages / largemem) live-server.
+### Kernel/initrd come from the czankel/ubuntu-largemem GitHub release;
+### casper streams the full ISO from cdimage.ubuntu.com at boot.
 ###
 
-:start
-echo Hello world!
-sleep 10
+:custom
+clear custom_choice
+menu czankel's Custom Menu
+item --gap Ubuntu 26.04 LTS (arm64, 64k pages): ||
+item ubuntu-26-04-largemem ${space} Ubuntu 26.04.1 Live Server arm64 +largemem
+choose custom_choice || goto custom_exit
+echo ${cls}
+goto ${custom_choice}
 goto custom_exit
 
+:ubuntu-26-04-largemem
+set kernel_url https://github.com/czankel/ubuntu-largemem/releases/download/26.04.1-40f930e5/
+set largemem_iso_url https://cdimage.ubuntu.com/ubuntu/releases/26.04/release/ubuntu-26.04.1-live-server-arm64%2Blargemem.iso
+kernel ${kernel_url}vmlinuz root=/dev/ram0 ramdisk_size=3500000 ip=dhcp url=${largemem_iso_url} initrd=initrd.magic
+initrd ${kernel_url}initrd
+boot || goto custom_exit
+
 :custom_exit
-exit 0
+chain utils.ipxe
+exit
