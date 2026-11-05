@@ -22,6 +22,7 @@ set kernel_url https://github.com/czankel/ubuntu-largemem/releases/download/26.0
 set largemem_iso_url https://cdimage.ubuntu.com/ubuntu/releases/26.04/release/ubuntu-26.04.1-live-server-arm64%2Blargemem.iso
 kernel ${kernel_url}vmlinuz root=/dev/ram0 ramdisk_size=3500000 cloud-config-url=/dev/null ${netboot_params} ${install_params} {{ kernel_params }}
 initrd ${kernel_url}initrd
+imgargs vmlinuz initrd=initrd
 echo
 boot || goto custom_exit
 
