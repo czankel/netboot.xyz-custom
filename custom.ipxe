@@ -81,6 +81,7 @@ goto deb_install
 :deb_install
 iseq ${install_type} deb && goto deb_boot ||
 iseq ${kernel_flavor} hwe && goto ${ubuntu_version}_${os_arch}_hwe ||
+iseq ${kernel_flavor} large && goto ${ubuntu_version}_${os_arch}_large ||
 iseq ${install_type} sub && goto ${ubuntu_version}_${os_arch} ||
 
 :deb_boot
