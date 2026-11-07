@@ -158,8 +158,9 @@ goto sub_boot
 
 :resolute_arm64_large
 set kernel_url https://github.com/czankel/ubuntu-largemem/releases/download/26.04.1-40f930e5/
-set ubuntu_iso_url https://cdimage.ubuntu.com/ubuntu/releases/26.04/release/ubuntu-26.04.1-live-server-arm64%2Blargemem.iso
-set cmdline nouveau.modeset=0, console=tty0 console=ttyS0,921600, sbsa_gwdt.action=1, noui, and pxeinstall=true
+; set ubuntu_iso_url https://cdimage.ubuntu.com/ubuntu/releases/26.04/release/ubuntu-26.04.1-live-server-arm64%2Blargemem.iso
+set cmdline nouveau.modeset=0 console=tty0 sbsa_gwdt.action=1
+; console=ttyS0,921600 pxeinstall=true
 set codename resolute
 set version_number 26.04.1
 goto sub_boot
